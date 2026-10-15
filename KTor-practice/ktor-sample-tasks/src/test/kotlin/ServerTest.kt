@@ -1,0 +1,78 @@
+package com.example
+
+import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.formUrlEncode
+import io.ktor.server.testing.testApplication
+import org.apache.hc.core5.http.message.MessageSupport.header
+import kotlin.test.*
+
+class ServerTest {
+
+    @Test
+    fun `test root endpoint`() = testApplication {
+        // loads default configuration
+        configure()
+        // verify server root returns 200
+        assertEquals(HttpStatusCode.OK, client.get("/").status)
+    }
+
+    @Test
+    fun tasksCanBeFoundVyPriority() = testApplication{
+        configure()
+        val response = client.get("/tasks/byPriority/Medium")
+        val body = response.bodyAsText()
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertContains(body, "Mow the lawn")
+        assertContains(body,"Paint the fence")
+    }
+
+    @Test
+    fun invalidPriorityProduces400() = testApplication{
+        configure()
+
+        val response = client.get("/tasks/bypriority/Invalid")
+        assertEquals(HttpStatusCode.BadRequest,response.status)
+    }
+
+    @Test
+    fun unusedPriorityProduces404() = testApplication{
+        configure()
+
+        val response = client.get("/tasks/bypriority/Vital")
+        assertEquals(HttpStatusCode.NotFound, response.status)
+    }
+    @Test
+    fun newTaskCanBeAdded()= testApplication {
+        configure()
+        //Add a new task
+        val response1 = client.post("/tasks"){
+            header(HttpHeaders.ContentType, "application/json",
+                    ContentType.Application.FormUrlEncoded.toString())
+            setBody(
+                listOf(
+                    "name" to "swimming",
+                    "description" to "Go to the beach",
+                    "priority" to "Low"
+                ).formUrlEncode()
+            )
+        }
+        assertEquals(HttpStatusCode.NoContent, response1.status)
+
+
+        //Checks if task was added
+        val response2 = client.get("/tasks")
+        assertEquals(HttpStatusCode.OK,response2.status)
+        val body = response2.bodyAsText()
+
+        assertContains(body, "swimming")
+        assertContains(body,"Go to the beach")
+
+    }
+}
